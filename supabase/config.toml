@@ -1,0 +1,10 @@
+project_id = "miyriwxinkjvxzzgewrk"
+
+[functions.get-weather]
+verify_jwt = false
+
+[functions.elevenlabs-tts]
+verify_jwt = false
+
+[functions.get-market-prices]
+verify_jwt = false

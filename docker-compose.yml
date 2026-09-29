@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # Mitti-Mitra Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mitti-mitra-app
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+      VITE_GOOGLE_CLOUD_TTS_API_KEY: ${VITE_GOOGLE_CLOUD_TTS_API_KEY}
+      VITE_ELEVENLABS_API_KEY: ${VITE_ELEVENLABS_API_KEY}
+      VITE_ROBOFLOW_API_KEY: ${VITE_ROBOFLOW_API_KEY}
+    depends_on:
+      - nginx
+    networks:
+      - mitti-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Nginx Reverse Proxy & Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: mitti-mitra-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    networks:
+      - mitti-network
+    restart: unless-stopped
+    depends_on:
+      - app
+
+  # PostgreSQL Database (optional local setup)
+  postgres:
+    image: postgres:15-alpine
+    container_name: mitti-mitra-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-agricultureadmin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-securepassword123}
+      POSTGRES_DB: ${DB_NAME:-mitti_mitra}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./supabase/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks:
+      - mitti-network
+    restart: unless-stopped
+    profiles:
+      - local-db
+
+  # Redis Cache (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: mitti-mitra-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - mitti-network
+    restart: unless-stopped
+    profiles:
+      - caching
+
+networks:
+  mitti-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
